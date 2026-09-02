@@ -51,7 +51,7 @@ La autorización de escritura no debe depender solo del correo comprobado en Jav
 Sitio configurado:
 
 ```text
-https://fiasec.sharepoint.com/sites/RecursosAdministrativo
+https://fiasec.sharepoint.com/sites/FONDODEINVERSIONAMBIENTALSOSTENIBLE
 ```
 
 Rutas:

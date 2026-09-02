@@ -1,7 +1,7 @@
-import { AUTH_CONFIG, SHAREPOINT_GPS_CONFIG } from '../config/msal-config.js?v=2.0.0';
-import { graph } from './graph.js?v=2.0.0';
-import { resolveSite } from './sharepoint.js?v=2.0.0';
-import { getAuthenticatedEmail, isGpsAdministrator } from './auth.js?v=2.0.0';
+import { AUTH_CONFIG, SHAREPOINT_GPS_CONFIG } from '../config/msal-config.js?v=2.0.1';
+import { graph } from './graph.js?v=2.0.1';
+import { resolveGpsSite } from './sharepoint.js?v=2.0.1';
+import { getAuthenticatedEmail, isGpsAdministrator } from './auth.js?v=2.0.1';
 
 let driveCache=null;
 
@@ -30,7 +30,7 @@ function uploadName(original){
 
 export async function getGpsDrive(){
   if(driveCache) return driveCache;
-  const site=await resolveSite();
+  const site=await resolveGpsSite();
   driveCache=await graph(`/sites/${encodeURIComponent(site.id)}/drive?$select=id,name,webUrl,driveType`,adminAuth());
   return driveCache;
 }

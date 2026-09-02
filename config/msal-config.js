@@ -30,6 +30,9 @@ export const SHAREPOINT_CONFIG = {
 // Carpetas relativas a la biblioteca de documentos predeterminada del sitio SharePoint.
 // La carpeta Entrada debe tener permisos de escritura únicamente para el administrador autorizado.
 export const SHAREPOINT_GPS_CONFIG = {
+  // Sitio real donde se almacena la carpeta Movilizaciones-FIAS/GPS.
+  host: 'fiasec.sharepoint.com',
+  sitePath: '/sites/FONDODEINVERSIONAMBIENTALSOSTENIBLE',
   inboxFolder: 'Movilizaciones-FIAS/GPS/Entrada',
   processedFolder: 'Movilizaciones-FIAS/GPS/Procesados',
   rejectedFolder: 'Movilizaciones-FIAS/GPS/Rechazados',
@@ -59,6 +62,6 @@ export const APP_CONFIG = {
   name: 'FIAS · Inteligencia de Movilizaciones',
   timezone: 'America/Guayaquil',
   locale: 'es-EC',
-  version: '2.0.0',
+  version: '2.0.1',
   logoUrl: 'https://fias.org.ec/wp-content/uploads/2021/11/Logo_FIAS_web.png'
 };

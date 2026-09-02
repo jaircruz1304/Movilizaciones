@@ -1,3 +1,9 @@
+# 2.0.1
+
+- Se separó el sitio SharePoint usado por datos GPS del sitio utilizado por la lista operativa de movilizaciones.
+- GPS configurado en `https://fiasec.sharepoint.com/sites/FONDODEINVERSIONAMBIENTALSOSTENIBLE`.
+- GitHub Actions y el procesador usan el mismo sitio GPS.
+
 # Changelog
 
 ## v2.0.0

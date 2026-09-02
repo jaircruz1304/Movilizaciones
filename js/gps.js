@@ -1,7 +1,7 @@
-import { GPS_CONFIG, SHAREPOINT_GPS_CONFIG } from '../config/msal-config.js?v=2.0.0';
-import { haversineKm, normalizeText, percentile } from './utils.js?v=2.0.0';
-import { graph } from './graph.js?v=2.0.0';
-import { resolveSite } from './sharepoint.js?v=2.0.0';
+import { GPS_CONFIG, SHAREPOINT_GPS_CONFIG } from '../config/msal-config.js?v=2.0.1';
+import { haversineKm, normalizeText, percentile } from './utils.js?v=2.0.1';
+import { graph } from './graph.js?v=2.0.1';
+import { resolveGpsSite } from './sharepoint.js?v=2.0.1';
 
 const gpsState={manifest:null,points:[],trackers:new Map(),loaded:false,source:'SharePoint protegido'};
 export { gpsState };
@@ -10,7 +10,7 @@ let gpsDrive=null;
 function encodePath(path=''){return String(path).split('/').filter(Boolean).map(encodeURIComponent).join('/');}
 async function getGpsReadDrive(){
   if(gpsDrive)return gpsDrive;
-  const site=await resolveSite();
+  const site=await resolveGpsSite();
   gpsDrive=await graph(`/sites/${encodeURIComponent(site.id)}/drive?$select=id,name,webUrl,driveType`);
   return gpsDrive;
 }

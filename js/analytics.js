@@ -1,4 +1,4 @@
-import { groupCounts, sum, average, iqrOutlierThreshold, formatDateKey } from './utils.js?v=2.0.0';
+import { groupCounts, sum, average, iqrOutlierThreshold, formatDateKey } from './utils.js?v=2.0.1';
 
 export function filterMovements(rows,filters={}){
   const q=(filters.search||'').trim().toLowerCase();
