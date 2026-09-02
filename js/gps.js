@@ -9,9 +9,39 @@ export { gpsState };
 let gpsDrive=null;
 function encodePath(path=''){return String(path).split('/').filter(Boolean).map(encodeURIComponent).join('/');}
 async function getGpsReadDrive(){
-  if(gpsDrive)return gpsDrive;
-  const site=await resolveGpsSite();
-  gpsDrive=await graph(`/sites/${encodeURIComponent(site.id)}/drive?$select=id,name,webUrl,driveType`);
+  if(gpsDrive) return gpsDrive;
+
+  const site = await resolveGpsSite();
+
+  const data = await graph(
+    `/sites/${encodeURIComponent(site.id)}/drives?$select=id,name,webUrl,driveType`
+  );
+
+  const drives = data?.value || [];
+
+  if (!drives.length) {
+    throw new Error(
+      'No se encontraron bibliotecas de documentos accesibles para los datos GPS.'
+    );
+  }
+
+  gpsDrive =
+    drives.find(d => {
+      const url = decodeURIComponent(String(d.webUrl || '')).toLowerCase();
+      return url.includes('/documentos compartidos');
+    }) ||
+    drives.find(d =>
+      ['documentos compartidos','documentos','documents','shared documents']
+        .includes(String(d.name || '').trim().toLowerCase())
+    ) ||
+    drives[0];
+
+  console.info('Biblioteca GPS de lectura:', {
+    id: gpsDrive.id,
+    name: gpsDrive.name,
+    webUrl: gpsDrive.webUrl
+  });
+
   return gpsDrive;
 }
 async function loadProtectedJson(filename){

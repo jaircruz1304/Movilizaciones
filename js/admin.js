@@ -30,8 +30,41 @@ function uploadName(original){
 
 export async function getGpsDrive(){
   if(driveCache) return driveCache;
-  const site=await resolveGpsSite();
-  driveCache=await graph(`/sites/${encodeURIComponent(site.id)}/drive?$select=id,name,webUrl,driveType`,adminAuth());
+
+  const site = await resolveGpsSite();
+
+  const data = await graph(
+    `/sites/${encodeURIComponent(site.id)}/drives?$select=id,name,webUrl,driveType`,
+    adminAuth()
+  );
+
+  const drives = data?.value || [];
+
+  if (!drives.length) {
+    throw new Error(
+      'No se encontraron bibliotecas de documentos accesibles en el sitio SharePoint.'
+    );
+  }
+
+  // Biblioteca real utilizada por FIAS:
+  // /Documentos compartidos/
+  driveCache =
+    drives.find(d => {
+      const url = decodeURIComponent(String(d.webUrl || '')).toLowerCase();
+      return url.includes('/documentos compartidos');
+    }) ||
+    drives.find(d =>
+      ['documentos compartidos','documentos','documents','shared documents']
+        .includes(String(d.name || '').trim().toLowerCase())
+    ) ||
+    drives[0];
+
+  console.info('Biblioteca GPS seleccionada:', {
+    id: driveCache.id,
+    name: driveCache.name,
+    webUrl: driveCache.webUrl
+  });
+
   return driveCache;
 }
 
@@ -108,10 +141,26 @@ export async function uploadGpsPdf(file,onProgress=()=>{}){
 
 export async function listPendingUploads(){
   requireAdmin();
-  const drive=await getGpsDrive();
-  const folder=await ensureFolderPath(SHAREPOINT_GPS_CONFIG.inboxFolder);
-  const data=await graph(`/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(folder.id)}/children?$select=id,name,size,createdDateTime,createdBy,webUrl,file&$orderby=createdDateTime desc&$top=100`,adminAuth());
-  return (data?.value||[]).filter(x=>x.file && String(x.name||'').toLowerCase().endsWith('.pdf'));
+
+  const drive = await getGpsDrive();
+  const folder = await ensureFolderPath(
+    SHAREPOINT_GPS_CONFIG.inboxFolder
+  );
+
+  const data = await graph(
+    `/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(folder.id)}/children?$select=id,name,size,createdDateTime,createdBy,webUrl,file&$top=100`,
+    adminAuth()
+  );
+
+  return (data?.value || [])
+    .filter(x =>
+      x.file &&
+      String(x.name || '').toLowerCase().endsWith('.pdf')
+    )
+    .sort((a,b) =>
+      String(b.createdDateTime || '')
+        .localeCompare(String(a.createdDateTime || ''))
+    );
 }
 
 export async function loadGpsHistory(){
