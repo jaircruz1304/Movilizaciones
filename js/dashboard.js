@@ -1,9 +1,9 @@
-import { $, $$, escapeHtml, fmtInt, fmtKm, fmtPct, fmt1, formatDateTime, formatDate, groupCounts, csvEscape, downloadText, safeJson } from './utils.js?v=2.0.1';
-import { kpis, monthlyTrend, top, weekdayDemand, provinceCoverage, routeClusters, anomalies, dataQuality, executiveInsights } from './analytics.js?v=2.0.1';
-import { gpsSummary, gpsState } from './gps.js?v=2.0.1';
-import { sharepointState, SEMANTICS } from './sharepoint.js?v=2.0.1';
-import { authDiagnostics } from './auth.js?v=2.0.1';
-import { showTrip } from './maps.js?v=2.0.1';
+import { $, $$, escapeHtml, fmtInt, fmtKm, fmtPct, fmt1, formatDateTime, formatDate, groupCounts, csvEscape, downloadText, safeJson } from './utils.js?v=2.3.0';
+import { kpis, monthlyTrend, top, weekdayDemand, provinceCoverage, routeClusters, anomalies, dataQuality, executiveInsights, destinationSummary, territorialScope } from './analytics.js?v=2.3.0';
+import { gpsSummary, gpsState } from './gps.js?v=2.3.0';
+import { sharepointState, SEMANTICS } from './sharepoint.js?v=2.3.0';
+import { authDiagnostics } from './auth.js?v=2.3.0';
+import { showTrip } from './maps.js?v=2.3.0';
 
 const charts={};
 let currentRows=[];
@@ -46,10 +46,11 @@ export function renderOverview(rows=currentRows){
     {label:'Movilizaciones',data:trend.map(x=>x.movements),borderWidth:0,borderRadius:6,yAxisID:'y'},
     {label:'Km SharePoint',data:trend.map(x=>Math.round(x.km)),type:'line',borderWidth:2,tension:.3,pointRadius:3,yAxisID:'y1'}
   ],{options:{scales:{x:{grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'Movilizaciones'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Km'}}}}});
-  $('destinationRanking').innerHTML=rankHtml(top(rows,'destinationLabel',8));
+  const destinations=destinationSummary(rows,8);
+  $('destinationRanking').innerHTML=destinations.length?destinations.map((x,i)=>`<div class="rank-row"><div class="rank-no">${i+1}</div><div class="rank-main"><strong title="${escapeHtml(x.label)}">${escapeHtml(x.label)}</strong><small>${escapeHtml(x.province||'Ubicación por completar')} · ${fmtInt(x.gps)} con GPS</small></div><div class="rank-val">${fmtInt(x.count)}</div></div>`).join(''):'<div class="empty">Sin datos para el filtro actual.</div>';
   $('insightList').innerHTML=executiveInsights(rows).map(x=>`<div class="insight"><i class="bi bi-stars"></i> ${escapeHtml(x)}</div>`).join('');
-  const acts=top(rows,'activityCategory',8);
-  chart('chartActivities','doughnut',acts.map(x=>x[0]),[{label:'Movilizaciones',data:acts.map(x=>x[1]),borderWidth:0}],{legend:true});
+  const scope=territorialScope(rows);
+  chart('chartTerritorialScope','bar',scope.map(x=>x.label),[{label:'Movilizaciones',data:scope.map(x=>x.value),borderWidth:0,borderRadius:5}],{legend:false,options:{indexAxis:'y',scales:{x:{beginAtZero:true},y:{grid:{display:false}}}}});
 }
 
 export function renderTerritory(rows=currentRows){
@@ -65,8 +66,9 @@ export function renderOperations(rows=currentRows){
   body.innerHTML=rows.length?rows.slice().sort((a,b)=>(b.start?.getTime()||0)-(a.start?.getTime()||0)).map(r=>{
     const agreement=r.gps?.agreement||'Sin GPS';
     const cls=agreement==='Alta'?'ok':agreement==='Media'||agreement==='Referencia'?'warn':agreement==='Revisar'?'bad':'neutral';
-    return `<tr data-id="${escapeHtml(r.id)}"><td>${escapeHtml(formatDateTime(r.start))}<br><span class="muted">${escapeHtml(formatDateTime(r.end))}</span></td><td>${escapeHtml(r.requester||'—')}</td><td>${escapeHtml(r.project||r.group||'—')}</td><td>${escapeHtml(r.driver||'—')}</td><td><strong>${escapeHtml(r.destinationLabel||'—')}</strong><br><span class="muted">${escapeHtml((r.destination||'').slice(0,95))}</span></td><td>${r.distance?fmtKm(r.distance):'—'}</td><td>${r.gps?pill('Relacionado','ok'):pill('Sin relación','neutral')}</td><td>${r.gps?.odometerKm?fmtKm(r.gps.odometerKm):'—'}</td><td>${escapeHtml((r.gps?.provinces||[]).slice(0,3).join(' · ')||'—')}</td><td>${pill(agreement,cls)}</td></tr>`;
-  }).join(''):'<tr><td colspan="10"><div class="empty">No existen movilizaciones para los filtros aplicados.</div></td></tr>';
+    const territorial=[r.destinationProvince,r.destinationValidation].filter(Boolean).join(' · ');
+    return `<tr data-id="${escapeHtml(r.id)}"><td>${escapeHtml(formatDateTime(r.start))}<br><span class="muted">${escapeHtml(formatDateTime(r.end))}</span></td><td>${escapeHtml(r.requester||'—')}</td><td>${escapeHtml(r.project||r.group||'—')}</td><td><strong>${escapeHtml(r.destinationLabel||'—')}</strong>${territorial?`<br><span class="muted">${escapeHtml(territorial)}</span>`:''}<br><span class="muted">${escapeHtml((r.destination||'').slice(0,95))}</span></td><td>${r.distance?fmtKm(r.distance):'—'}</td><td>${r.gps?pill('Relacionado','ok'):pill('Sin relación','neutral')}</td><td>${r.gps?.odometerKm?fmtKm(r.gps.odometerKm):'—'}</td><td>${escapeHtml((r.gps?.provinces||[]).slice(0,4).join(' → ')||'—')}</td><td>${pill(agreement,cls)}</td></tr>`;
+  }).join(''):'<tr><td colspan="9"><div class="empty">No existen movilizaciones para los filtros aplicados.</div></td></tr>';
   body.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',()=>openDetail(rows.find(r=>r.id===tr.dataset.id))));
 }
 
@@ -74,13 +76,11 @@ export function renderFleet(rows=currentRows){
   const groups=top(rows,r=>r.project||r.group,12),users=top(rows,'requester',12),vehicles=top(rows,r=>r.vehicle||r.plate,12),week=weekdayDemand(rows);
   const K=kpis(rows);
   const activeVehicles=new Set(rows.map(r=>r.vehicle||r.plate).filter(Boolean)).size;
-  const activeDrivers=new Set(rows.map(r=>r.driver).filter(Boolean)).size;
   const avgKm=K.movements?K.sharepointKm/K.movements:0;
   $('fleetKpis').innerHTML=[
     kpiCard('Horas de uso',`${fmt1(K.totalUseHours)} h`,'Suma de duración de movilizaciones','bi-clock-history'),
     kpiCard('Duración media',`${fmt1(K.avgDuration)} h`,'Promedio por movilización con duración válida','bi-hourglass-split'),
     kpiCard('Vehículos activos',fmtInt(activeVehicles),'Vehículos o placas identificados','bi-truck'),
-    kpiCard('Conductores',fmtInt(activeDrivers),'Conductores identificados','bi-person-vcard'),
     kpiCard('Km por movilización',fmtKm(avgKm),'Promedio registrado en SharePoint','bi-signpost-split')
   ].join('');
   chart('chartGroups','bar',groups.map(x=>x[0]),[{label:'Movilizaciones',data:groups.map(x=>x[1]),borderWidth:0,borderRadius:5}],{legend:false,options:{indexAxis:'y',scales:{x:{beginAtZero:true},y:{grid:{display:false}}}}});
@@ -115,20 +115,30 @@ export function renderQuality(rows=currentRows){
   $('qualityGrid').innerHTML=q.map(x=>`<div class="quality-item"><span>${escapeHtml(x.label)}</span><strong>${fmtPct(x.pct)}</strong><div class="progress"><div style="width:${Math.min(100,x.pct)}%"></div></div><small>${fmtInt(x.count)} de ${fmtInt(rows.length)}</small></div>`).join('');
   const d=sharepointState;
   const a=authDiagnostics();
-  $('sourceDiagnostics').innerHTML=[
-    ['Usuario',a.account||'—'],['Sitio',d.site?.displayName||'—'],['Lista',d.activeList?.displayName||d.activeList?.name||'—'],['Registros',fmtInt(d.items.length)],['GPS',`${fmtInt(gpsState.points.length)} puntos`],['Base GPS actualizada',gpsState.manifest?.updatedAt?formatDateTime(new Date(gpsState.manifest.updatedAt)):'—'],['Redirect URI',a.redirectUri]
-  ].map(([k,v])=>`<div class="diag-row"><span>${escapeHtml(k)}</span><strong title="${escapeHtml(v)}">${escapeHtml(v)}</strong></div>`).join('');
+  const diagnostics=$('sourceDiagnostics');
+  if(diagnostics){
+    diagnostics.innerHTML=a.isGpsAdministrator ? [
+      ['Usuario',a.account||'—'],['Sitio',d.site?.displayName||'—'],['Lista',d.activeList?.displayName||d.activeList?.name||'—'],['Registros',fmtInt(d.items.length)],['GPS',`${fmtInt(gpsState.points.length)} puntos`],['Base GPS actualizada',gpsState.manifest?.updatedAt?formatDateTime(new Date(gpsState.manifest.updatedAt)):'—'],['Redirect URI',a.redirectUri]
+    ].map(([k,v])=>`<div class="diag-row"><span>${escapeHtml(k)}</span><strong title="${escapeHtml(v)}">${escapeHtml(v)}</strong></div>`).join('') : '';
+  }
   const an=anomalies(rows).slice(0,100);
   $('anomalyRows').innerHTML=an.length?an.map(r=>`<tr data-id="${escapeHtml(r.id)}"><td>${escapeHtml(formatDateTime(r.start))}</td><td>${escapeHtml(r.destinationLabel||r.destination||'—')}</td><td>${escapeHtml(r.requester||'—')}</td><td>${r.issues.map(x=>pill(x,'warn')).join(' ')}</td></tr>`).join(''):'<tr><td colspan="4"><div class="empty">No se detectaron excepciones con las reglas actuales.</div></td></tr>';
   $('anomalyRows').querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',()=>openDetail(rows.find(r=>r.id===tr.dataset.id))));
 }
 
 export function renderSourceModal(){
+  if(!authDiagnostics().isGpsAdministrator){
+    const chooser=$('listChooser');
+    const editor=$('mappingEditor');
+    if(chooser) chooser.innerHTML='<div class="empty">Configuración restringida al administrador autorizado.</div>';
+    if(editor) editor.innerHTML='';
+    return;
+  }
   const lists=sharepointState.lists.filter(l=>!(l.list?.hidden));
   $('listChooser').innerHTML=lists.slice(0,25).map(l=>`<div class="source-card ${l.id===sharepointState.activeList?.id?'active':''}"><div><strong>${escapeHtml(l.displayName||l.name)}</strong><small>${escapeHtml(l.webUrl||'')} · puntuación ${fmtInt(l.score||0)}</small></div><button data-list="${escapeHtml(l.id)}">${l.id===sharepointState.activeList?.id?'Activa':'Usar'}</button></div>`).join('');
   $('listChooser').querySelectorAll('button[data-list]').forEach(b=>b.addEventListener('click',()=>onChooseList?.(b.dataset.list)));
   const cols=sharepointState.columns||[];
-  $('mappingEditor').innerHTML=Object.entries(SEMANTICS).map(([key,meta])=>`<label class="mapping-item"><span>${escapeHtml(meta.label)}</span><select data-map-key="${escapeHtml(key)}"><option value="">No utilizar</option>${cols.map(c=>`<option value="${escapeHtml(c.name)}" ${sharepointState.mapping[key]===c.name?'selected':''}>${escapeHtml(c.displayName||c.name)}</option>`).join('')}</select></label>`).join('');
+  $('mappingEditor').innerHTML=Object.entries(SEMANTICS).filter(([key])=>key!=='driver').map(([key,meta])=>`<label class="mapping-item"><span>${escapeHtml(meta.label)}</span><select data-map-key="${escapeHtml(key)}"><option value="">No utilizar</option>${cols.map(c=>`<option value="${escapeHtml(c.name)}" ${sharepointState.mapping[key]===c.name?'selected':''}>${escapeHtml(c.displayName||c.name)}</option>`).join('')}</select></label>`).join('');
 }
 
 function openDetail(r){
@@ -138,10 +148,10 @@ function openDetail(r){
   $('detailBody').innerHTML=`
     <div class="detail-summary">
       ${detailMetric('Inicio',formatDateTime(r.start))}${detailMetric('Fin',formatDateTime(r.end))}${detailMetric('Solicitante',r.requester||'—')}${detailMetric('Grupo / proyecto',r.project||r.group||'—')}${detailMetric('Km SharePoint',r.distance?fmtKm(r.distance):'—')}${detailMetric('Km GPS',gps?.odometerKm?fmtKm(gps.odometerKm):'—')}
-      ${detailMetric('Velocidad máx.',gps?`${fmtInt(gps.maxSpeed)} km/h`:'—')}${detailMetric('Provincias',(gps?.provinces||[]).join(' · ')||'—')}${detailMetric('Punto más alejado',gps?.remote?fmtKm(gps.remote.distanceFromOrigin):'—')}${detailMetric('Conciliación',gps?.agreement||'Sin GPS')}${detailMetric('Anticipación solicitud',Number.isFinite(r.leadHours)?`${fmt1(r.leadHours)} h`:'—')}${detailMetric('Duración',r.durationHours?`${fmt1(r.durationHours)} h`:'—')}
+      ${detailMetric('Velocidad máx.',gps?`${fmtInt(gps.maxSpeed)} km/h`:'—')}${detailMetric('Provincia destino',r.destinationProvince||'—')}${detailMetric('Destino consolidado',r.destinationLabel||'Por identificar')}${detailMetric('Validación destino',r.destinationValidation||'—')}${detailMetric('Fuente destino',r.destinationSource||'—')}${detailMetric('Punto más alejado',gps?.remote?fmtKm(gps.remote.distanceFromOrigin):'—')}${detailMetric('Conciliación',gps?.agreement||'Sin GPS')}${detailMetric('Anticipación solicitud',Number.isFinite(r.leadHours)?`${fmt1(r.leadHours)} h`:'—')}${detailMetric('Duración',r.durationHours?`${fmt1(r.durationHours)} h`:'—')}
     </div>
-    <article class="panel compact"><span class="eyebrow">Destino / finalidad registrada</span><p>${escapeHtml(r.destination||'Sin información')}</p></article>
-    ${gps?`<article class="panel compact" style="margin-top:10px"><span class="eyebrow">Evidencia GPS</span><p><strong>${escapeHtml(gps.tracker)}</strong> · ${fmtInt(gps.points)} puntos · ${fmtKm(gps.pathKm)} de trayectoria geométrica · ${fmtInt(gps.speedingEvents)} eventos de exceso de velocidad.</p><p class="muted">Punto remoto: ${escapeHtml(gps.remote?.place||'—')}</p><button id="btnDetailMap" class="primary-action small"><i class="bi bi-map"></i> Ver ruta GPS en el mapa</button></article>`:''}
+    <article class="panel compact"><span class="eyebrow">Detalle original registrado</span><p>${escapeHtml(r.destination||'Sin información')}</p></article>
+    ${gps?`<article class="panel compact" style="margin-top:10px"><span class="eyebrow">Evidencia GPS</span><p><strong>${escapeHtml(gps.tracker)}</strong> · ${fmtInt(gps.points)} puntos · ${fmtKm(gps.pathKm)} de trayectoria geométrica · ${fmtInt(gps.speedingEvents)} eventos de exceso de velocidad.</p><p class="muted">Destino GPS estructurado: ${escapeHtml(gps.destinationEvidence?.label||'—')}${gps.destinationEvidence?.province?` · ${escapeHtml(gps.destinationEvidence.province)}`:''}</p><p class="muted">Punto más alejado: ${escapeHtml(gps.remote?.place||'—')}</p><button id="btnDetailMap" class="primary-action small"><i class="bi bi-map"></i> Ver ruta GPS en el mapa</button></article>`:''}
     <details style="margin-top:12px"><summary>Registro completo de SharePoint</summary><pre style="white-space:pre-wrap;background:#f5f7f5;padding:12px;border-radius:12px;overflow:auto">${escapeHtml(safeJson(r.raw))}</pre></details>`;
   $('detailDrawer').classList.add('open');$('detailDrawer').setAttribute('aria-hidden','false');
   $('btnDetailMap')?.addEventListener('click',()=>{closeDetail();onOpenTrip?.(r);});
@@ -149,17 +159,17 @@ function openDetail(r){
 function detailMetric(label,value){return `<div class="detail-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;}
 export function closeDetail(){$('detailDrawer').classList.remove('open');$('detailDrawer').setAttribute('aria-hidden','true');}
 
-export function openSourceModal(){renderSourceModal();$('sourceModal').classList.add('open');$('sourceModal').setAttribute('aria-hidden','false');}
+export function openSourceModal(){if(!authDiagnostics().isGpsAdministrator)return;renderSourceModal();$('sourceModal').classList.add('open');$('sourceModal').setAttribute('aria-hidden','false');}
 export function closeSourceModal(){$('sourceModal').classList.remove('open');$('sourceModal').setAttribute('aria-hidden','true');}
 export function collectMapping(){const map={};$$('[data-map-key]',$('mappingEditor')).forEach(s=>map[s.dataset.mapKey]=s.value);return map;}
 
 function exportRows(rows){
   return rows.map(r=>({
     ID:r.id||'', Inicio:formatDateTime(r.start), Fin:formatDateTime(r.end), Solicitante:r.requester||'',
-    'Grupo/Proyecto':r.project||r.group||'', Destino:r.destination||'', Actividad:r.activityCategory||'',
-    Vehiculo:r.vehicle||r.plate||'', Conductor:r.driver||'', 'Km SharePoint':r.distance||0,
+    'Grupo/Proyecto':r.project||r.group||'', 'Destino consolidado':r.destinationLabel||'', 'Provincia destino':r.destinationProvince||'', 'Validación destino':r.destinationValidation||'', 'Fuente destino':r.destinationSource||'', 'Detalle destino':r.destination||'', Actividad:r.activityCategory||'',
+    Vehiculo:r.vehicle||r.plate||'', 'Km SharePoint':r.distance||0,
     'GPS tracker':r.gps?.tracker||'', 'Km GPS':r.gps?.odometerKm||0, 'Diferencia km':r.gps?.differenceKm||0,
-    'Velocidad maxima':r.gps?.maxSpeed||0, Provincias:(r.gps?.provinces||[]).join(' | '), Conciliacion:r.gps?.agreement||''
+    'Velocidad maxima':r.gps?.maxSpeed||0, 'Ruta GPS':(r.gps?.provinces||[]).join(' > '), Conciliacion:r.gps?.agreement||''
   }));
 }
 
@@ -174,7 +184,7 @@ export function exportXlsx(rows=currentRows){
   if(!window.XLSX) throw new Error('No se cargó la librería de exportación Excel.');
   const data=exportRows(rows);
   const ws=XLSX.utils.json_to_sheet(data);
-  ws['!cols']=[{wch:18},{wch:20},{wch:20},{wch:28},{wch:28},{wch:45},{wch:25},{wch:22},{wch:25},{wch:16},{wch:16},{wch:14},{wch:16},{wch:18},{wch:34},{wch:16}];
+  ws['!cols']=[{wch:18},{wch:20},{wch:20},{wch:28},{wch:28},{wch:45},{wch:25},{wch:22},{wch:16},{wch:16},{wch:14},{wch:16},{wch:18},{wch:34},{wch:16}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Movilizaciones');
   const K=kpis(rows);
@@ -197,33 +207,11 @@ export function exportPdf(rows=currentRows){
   doc.setFontSize(16); doc.text('FIAS · Reporte de movilizaciones',14,15);
   doc.setFontSize(9); doc.text(`Generado: ${formatDateTime(new Date())} · ${fmtInt(K.movements)} movilizaciones · ${fmtKm(K.sharepointKm)} · ${fmt1(K.totalUseHours)} h de uso`,14,22);
   const body=rows.map(r=>[
-    formatDateTime(r.start),r.requester||'—',r.project||r.group||'—',r.driver||'—',r.destinationLabel||r.destination||'—',
+    formatDateTime(r.start),r.requester||'—',r.project||r.group||'—',r.destinationLabel||r.destination||'—',
     r.distance?fmt1(r.distance):'—',r.gps?.odometerKm?fmt1(r.gps.odometerKm):'—',r.gps?.agreement||'Sin GPS'
   ]);
-  doc.autoTable({startY:27,head:[['Inicio','Solicitante','Proyecto','Conductor','Destino','Km SP','Km GPS','Conciliación']],body,styles:{fontSize:7,cellPadding:1.8},headStyles:{fontSize:7},columnStyles:{4:{cellWidth:58}}});
+  doc.autoTable({startY:27,head:[['Inicio','Solicitante','Proyecto','Destino','Km SP','Km GPS','Conciliación']],body,styles:{fontSize:7,cellPadding:1.8},headStyles:{fontSize:7},columnStyles:{3:{cellWidth:68}}});
   doc.save('movilizaciones-fias.pdf');
-}
-
-function deltaText(a,b,kind='number'){
-  const d=b-a;
-  const sign=d>0?'+':'';
-  if(kind==='pct') return `${sign}${fmt1(d)} pp`;
-  if(kind==='hours') return `${sign}${fmt1(d)} h`;
-  if(kind==='km') return `${sign}${fmt1(d)} km`;
-  return `${sign}${fmtInt(d)}`;
-}
-function comparisonCard(label,a,b,format,kind){
-  return `<article class="comparison-card"><span>${escapeHtml(label)}</span><div><strong>${escapeHtml(format(a))}</strong><i class="bi bi-arrow-right"></i><strong>${escapeHtml(format(b))}</strong></div><small>Variación B vs. A: ${escapeHtml(deltaText(a,b,kind))}</small></article>`;
-}
-export function renderComparison(rowsA=[],rowsB=[],labels={a:'Período A',b:'Período B'}){
-  const box=$('comparisonGrid'); if(!box)return;
-  const A=kpis(rowsA),B=kpis(rowsB);
-  box.innerHTML=`<div class="comparison-head"><span>${escapeHtml(labels.a)}</span><i class="bi bi-arrow-left-right"></i><span>${escapeHtml(labels.b)}</span></div>`+[
-    comparisonCard('Movilizaciones',A.movements,B.movements,x=>fmtInt(x),'number'),
-    comparisonCard('Kilometraje SharePoint',A.sharepointKm,B.sharepointKm,x=>fmtKm(x),'km'),
-    comparisonCard('Tiempo de uso',A.totalUseHours,B.totalUseHours,x=>`${fmt1(x)} h`,'hours'),
-    comparisonCard('Conciliación GPS',A.gpsMatchRate,B.gpsMatchRate,x=>fmtPct(x),'pct')
-  ].join('');
 }
 
 export function renderAll(rows=currentRows,all=allRows){setRows(rows,all);renderOverview(rows);renderTerritory(rows);renderOperations(rows);renderFleet(rows);renderGps(rows);renderQuality(rows);}
